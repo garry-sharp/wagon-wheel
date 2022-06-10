@@ -1,0 +1,154 @@
+<html>
+
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.css"
+        integrity="sha512-3pIirOrwegjM6erE5gPSwkUzO+3cTjpnV9lexlNZqvupR64iZBnOOTiiLPb9M36zpMScbmUNIcHUqKD47M719g=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <title>Price Van</title>
+</head>
+
+<body style="background-color: aliceblue">
+    <div class="container" style="width:600px; margin-top:50px">
+        <h1 style="text-align: center">Crypto Price Van</h1>
+        <small style="display: table; margin: 0 auto;">By Garry Sharp</small>
+        <hr />
+        <form style="margin-top:50px" id="form">
+            <input id="action" name="action" type="hidden" value="" />
+            <div class="mb-3">
+                <label class="form-label">Duration (ms)</label>
+                <input class="form-control" id= "duration" name="duration" type="number" />
+                <div class="invalid-feedback">
+                    Duration cannot be less than 3000ms
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Quote</label>
+                <input class="form-control" id="quote" name="quote" type="text" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Assets</label>
+                <input class="form-control" id="assets" name="assets" type="text" />
+            </div>
+            <div class="row">
+                <div class="col-6">
+                    <button id="startButton" type="submit" class="btn btn-primary"
+                        style="width:100%; height:50px; border-radius: 10px;">
+                        Start/Reload
+                    </button>
+                </div>
+                <div class="col-6">
+                    <button id="stopButton" type="submit" class="btn btn-danger"
+                        style="width:100%; height:50px; border-radius: 10px;">
+                        Stop
+                    </button>
+                </div>
+            </div>
+        </form>
+        <div style="background-color: darkblue; width:100%; height:50px; border-radius: 10px">
+            <marquee id="marquee" style="color : white; margin-top: 10px;;"></marquee>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+        crossorigin="anonymous"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"
+        integrity="sha512-VEd+nq25CkR676O+pLBnDW09R7VQX9Mdiij052gVCp5yVH3jGtH70Ho/UUv4mJDsEdTvqRCFZg0NKGiojGnUCw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+
+        var prices = {}
+        function processUpdate(e){
+            price = JSON.parse(e.data)
+            key = price.asset + price.quote
+            displayName = price.asset + "/" + price.quote
+            if (!(key in prices)){
+                prices[key] = price.price
+                
+            }
+            
+            current = price.price
+            prev = prices[key]
+            prices[key] = current
+            diff = current - prev
+
+            if ($(`#${key}`).length){
+                $(`#${key}`).text(`${displayName} - ${current.toPrecision(5)} (${diff.toPrecision(2)})`)
+                if (diff > 0){
+                    $(`#${key}`).css("color", "green")
+                }else if(diff < 0){
+                    $(`#${key}`).css("color", "red")
+                }
+            }else{
+                $("#marquee").html($("#marquee").html() + `<span style="margin-left:20px;" id="${key}">${displayName} - ${current.toPrecision(5)} (0.00)</span>`)
+            }
+        }
+
+        document.getElementById("form").onsubmit = function (e) {
+            e.preventDefault()
+        }
+
+        document.getElementById("startButton").onclick = function () {
+            $("#marquee").html("")
+            duration = $("#duration").val()
+            assets = $("#assets").val()
+            quote = $("#quote").val()
+            toastr.info("Starting Server")
+            console.log("/start" + new URLSearchParams({
+                duration,
+                quote,
+                assets
+            }).toString())
+            $.get("/start?" + new URLSearchParams({
+                duration,
+                quote,
+                assets
+            }).toString())
+        }
+
+        document.getElementById("stopButton").onclick = function () {
+            $("#marquee").html("")
+            $.get("/stop").done(
+                function(){
+                    toastr.success("Stopped server")
+                }
+            ).fail(function(){
+                toastr.error("Error thrown stopping server")
+            })
+            toastr.info("Stopping Server")
+        }
+
+        const socket = new WebSocket('ws://localhost:3000/ws');
+        socket.addEventListener("open", function(){
+            toastr.info("Websocket connection started")
+        })
+        socket.addEventListener("message", function(e){
+            processUpdate(e)
+        })
+        socket.addEventListener("error", function(){
+            toastr.error("Error on websockets channel")
+        })
+        socket.addEventListener("close", function(){
+            toastr.error("Connection with server closed")
+        })
+
+            // setInterval(function(){
+            //     vals = {}
+            //     vals = {
+            //         "BTC/USD" : {
+            //             price : 31000,
+            //             prev : 32000
+            //         }
+            //     }
+            //     spans = []
+            //     for (assetQuote in vals){
+            //         //vals[]
+            //     }
+            // })
+    </script>
+</body>
+
+</html>
